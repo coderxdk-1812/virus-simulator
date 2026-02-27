@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virus Spread Simulation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080c18;
+    --panel: #0d1326;
+    --panel2: #111827;
+    --border: #1e2d4a;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --sick: #ff3d5a;
+    --immune: #00e5a0;
+    --healthy: #4a9eff;
+    --total: #f0f0f0;
+    --text: #c8d8f0;
+    --dim: #4a5568;
+    --glow: 0 0 10px rgba(0,212,255,0.3);
+  }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 860px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  .header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .header-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .header-sub {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-left: auto;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--immune);
+    box-shadow: 0 0 8px var(--immune);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Main layout */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* Left Panel */
+  .left-panel {
+    width: 220px;
+    min-width: 220px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 14px 14px 14px 14px;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .panel-section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 5px;
+    margin-bottom: 4px;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+
+  .control-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
+  input[type=range]::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct, 0%), var(--border) var(--pct, 0%));
+    border-radius: 2px;
+  }
+
+  /* Shape selector */
+  .shape-selector {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .shape-btn {
+    flex: 1;
+    min-width: 40px;
+    padding: 5px 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--panel2);
+    color: var(--dim);
+    font-size: 16px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .shape-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .shape-btn.active {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.1);
+    color: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .go-btn {
+    margin-top: auto;
+    padding: 12px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    background: rgba(0,212,255,0.08);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    box-shadow: var(--glow);
+    flex-shrink: 0;
+  }
+  .go-btn:hover {
+    background: rgba(0,212,255,0.2);
+    box-shadow: 0 0 20px rgba(0,212,255,0.5);
+  }
+  .go-btn.running {
+    border-color: var(--sick);
+    color: var(--sick);
+    background: rgba(255,61,90,0.08);
+    box-shadow: 0 0 10px rgba(255,61,90,0.3);
+  }
+  .setup-btn {
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel2);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .setup-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  /* Center canvas */
+  .center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  #simCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .legend {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    background: rgba(8,12,24,0.85);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    backdrop-filter: blur(4px);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Right Panel */
+  .right-panel {
+    width: 240px;
+    min-width: 240px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .stat-card {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .stat-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-value.infected { color: var(--sick); }
+  .stat-value.immune { color: var(--immune); }
+  .stat-value.time { color: var(--accent); }
+
+  .stat-bar {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .stat-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  #graphCanvas {
+    flex: 1;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel2);
+  }
+
+  .graph-legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 8px;
+    flex-shrink: 0;
+  }
+  .graph-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .graph-legend-line {
+    width: 18px; height: 2px;
+    border-radius: 1px;
+    flex-shrink: 0;
+  }
+
+  /* Grid overlay for canvas */
+  .canvas-wrap {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+  }
+  .canvas-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(30,45,74,0.2) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,45,74,0.2) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="status-dot"></div>
+  <div class="header-title">VIRUSIM // Biological Spread Model</div>
+  <div class="header-sub">NetLogo Virus Biology — Interactive Edition</div>
+</div>
+
+<div class="main">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="panel-section-title">Parameters</div>
+
+    <div class="control-group">
+      <div class="control-label">Model Speed <span class="control-value" id="speedVal">5</span></div>
+      <input type="range" id="speed" min="1" max="10" value="5" step="1">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">Population <span class="control-value" id="popVal">150</span></div>
+      <input type="range" id="population" min="10" max="500" value="150" step="5">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">Infectiousness <span class="control-value" id="infVal">65%</span></div>
+      <input type="range" id="infectiousness" min="0" max="100" value="65" step="1">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">Chance Recover <span class="control-value" id="recVal">25%</span></div>
+      <input type="range" id="chanceRecover" min="0" max="100" value="25" step="1">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">Duration (wks) <span class="control-value" id="durVal">20</span></div>
+      <input type="range" id="duration" min="1" max="100" value="20" step="1">
+    </div>
+
+    <div class="panel-section-title" style="margin-top:4px;">Agent Shape</div>
+    <div class="shape-selector">
+      <button class="shape-btn active" data-shape="person" title="Person">🧍</button>
+      <button class="shape-btn" data-shape="circle" title="Circle">⬤</button>
+      <button class="shape-btn" data-shape="triangle" title="Triangle">▲</button>
+      <button class="shape-btn" data-shape="diamond" title="Diamond">◆</button>
+    </div>
+
+    <button class="setup-btn" id="setupBtn">[ SETUP ]</button>
+    <button class="go-btn" id="goBtn">▶ GO</button>
+  </div>
+
+  <!-- CENTER CANVAS -->
+  <div class="center">
+    <div class="canvas-wrap">
+      <canvas id="simCanvas"></canvas>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--healthy);box-shadow:0 0 6px var(--healthy)"></div>
+          Susceptible
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--sick);box-shadow:0 0 6px var(--sick)"></div>
+          Infected
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--immune);box-shadow:0 0 6px var(--immune)"></div>
+          Recovered
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="panel-section-title">Live Stats</div>
+
+    <div class="stat-card">
+      <div class="stat-label">% Infected</div>
+      <div class="stat-value infected" id="statInfected">0.0%</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="barInfected" style="width:0%;background:var(--sick)"></div></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">% Immune</div>
+      <div class="stat-value immune" id="statImmune">0.0%</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="barImmune" style="width:0%;background:var(--immune)"></div></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Elapsed Time</div>
+      <div class="stat-value time" id="statTime">0.00 yrs</div>
+    </div>
+
+    <div class="panel-section-title" style="margin-top:4px;">Population Graph</div>
+    <canvas id="graphCanvas"></canvas>
+    <div class="graph-legend">
+      <div class="graph-legend-item"><div class="graph-legend-line" style="background:var(--sick)"></div>Sick</div>
+      <div class="graph-legend-item"><div class="graph-legend-line" style="background:var(--immune)"></div>Immune</div>
+      <div class="graph-legend-item"><div class="graph-legend-line" style="background:var(--healthy)"></div>Healthy</div>
+      <div class="graph-legend-item"><div class="graph-legend-line" style="background:var(--total)"></div>Total</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === CONFIG ===
+const COLORS = {
+  sick: '#ff3d5a',
+  immune: '#00e5a0',
+  healthy: '#4a9eff',
+  total: '#f0f0f0',
+  bg: '#080c18',
+  panel2: '#111827',
+};
+
+// === STATE ===
+let agents = [];
+let running = false;
+let animId = null;
+let tick = 0;
+let graphData = { sick:[], immune:[], healthy:[], total:[] };
+let selectedShape = 'person';
+let lastTime = 0;
+let accumulator = 0;
+
+// Params
+const getParam = (id) => parseFloat(document.getElementById(id).value);
+
+// === CANVAS SETUP ===
+const simCanvas = document.getElementById('simCanvas');
+const simCtx = simCanvas.getContext('2d');
+const graphCanvas = document.getElementById('graphCanvas');
+const graphCtx = graphCanvas.getContext('2d');
+
+function resizeCanvases() {
+  const wrap = document.querySelector('.canvas-wrap');
+  simCanvas.width = wrap.clientWidth;
+  simCanvas.height = wrap.clientHeight;
+  const gp = document.getElementById('graphCanvas');
+  gp.width = gp.clientWidth;
+  gp.height = gp.clientHeight;
+}
+
+window.addEventListener('resize', () => { resizeCanvases(); drawGraph(); });
+resizeCanvases();
+
+// === AGENT CLASS ===
+class Agent {
+  constructor(x, y, state) {
+    this.x = x;
+    this.y = y;
+    this.state = state; // 'healthy', 'sick', 'immune'
+    this.angle = Math.random() * Math.PI * 2;
+    this.speed = 1.2 + Math.random() * 0.8;
+    this.infectedTick = state === 'sick' ? 0 : -1;
+    this.size = 7;
+  }
+
+  move(W, H) {
+    // Random turn like NetLogo
+    this.angle += (Math.random() - 0.5) * 0.8;
+    this.x += Math.cos(this.angle) * this.speed;
+    this.y += Math.sin(this.angle) * this.speed;
+    // Wrap around
+    if (this.x < 0) this.x += W;
+    if (this.x > W) this.x -= W;
+    if (this.y < 0) this.y += H;
+    if (this.y > H) this.y -= H;
+  }
+
+  draw(ctx) {
+    const color = this.state === 'sick' ? COLORS.sick : this.state === 'immune' ? COLORS.immune : COLORS.healthy;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+
+    if (selectedShape === 'person') {
+      drawPerson(ctx, this.size, color);
+    } else if (selectedShape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (selectedShape === 'triangle') {
+      ctx.beginPath();
+      const s = this.size * 0.8;
+      ctx.moveTo(0, -s);
+      ctx.lineTo(s * 0.866, s * 0.5);
+      ctx.lineTo(-s * 0.866, s * 0.5);
+      ctx.closePath();
+      ctx.fill();
+    } else if (selectedShape === 'diamond') {
+      ctx.beginPath();
+      const s = this.size * 0.8;
+      ctx.moveTo(0, -s);
+      ctx.lineTo(s * 0.6, 0);
+      ctx.lineTo(0, s);
+      ctx.lineTo(-s * 0.6, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
+function drawPerson(ctx, size, color) {
+  const s = size * 0.55;
+  ctx.fillStyle = color;
+  // Head
+  ctx.beginPath();
+  ctx.arc(0, -s * 1.6, s * 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  // Body
+  ctx.beginPath();
+  ctx.roundRect(-s * 0.5, -s * 0.9, s, s * 1.4, 2);
+  ctx.fill();
+  // Legs
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.3, s * 0.5);
+  ctx.lineTo(-s * 0.5, s * 1.5);
+  ctx.moveTo(s * 0.3, s * 0.5);
+  ctx.lineTo(s * 0.5, s * 1.5);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = s * 0.5;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+}
+
+// === SETUP ===
+function setup() {
+  if (running) stopSim();
+  tick = 0;
+  graphData = { sick:[], immune:[], healthy:[], total:[] };
+  agents = [];
+  const n = Math.round(getParam('population'));
+  const W = simCanvas.width, H = simCanvas.height;
+  for (let i = 0; i < n; i++) {
+    const state = i === 0 ? 'sick' : 'healthy';
+    agents.push(new Agent(
+      20 + Math.random() * (W - 40),
+      20 + Math.random() * (H - 40),
+      state
+    ));
+  }
+  drawSim();
+  drawGraph();
+  updateStats();
+}
+
+// === SIMULATION STEP ===
+function step() {
+  const W = simCanvas.width, H = simCanvas.height;
+  const infectiousness = getParam('infectiousness') / 100;
+  const chanceRecover = getParam('chanceRecover') / 100;
+  const duration = getParam('duration');
+  const contactRadius = 12;
+
+  // Move all
+  agents.forEach(a => a.move(W, H));
+
+  // Infection spread
+  const sick = agents.filter(a => a.state === 'sick');
+  sick.forEach(infected => {
+    agents.forEach(other => {
+      if (other.state === 'healthy') {
+        const dx = infected.x - other.x, dy = infected.y - other.y;
+        if (dx*dx + dy*dy < contactRadius*contactRadius) {
+          if (Math.random() < infectiousness) {
+            other.state = 'sick';
+            other.infectedTick = tick;
+          }
+        }
+      }
+    });
+    // Recovery
+    const timeInfected = tick - infected.infectedTick;
+    if (timeInfected >= duration) {
+      if (Math.random() < chanceRecover) {
+        infected.state = 'immune';
+      }
+    }
+  });
+
+  tick++;
+
+  // Collect graph data (every 2 ticks)
+  if (tick % 2 === 0) {
+    const total = agents.length;
+    const nSick = agents.filter(a => a.state === 'sick').length;
+    const nImmune = agents.filter(a => a.state === 'immune').length;
+    const nHealthy = total - nSick - nImmune;
+    graphData.sick.push(nSick);
+    graphData.immune.push(nImmune);
+    graphData.healthy.push(nHealthy);
+    graphData.total.push(total);
+    // Cap history
+    const maxPts = 300;
+    if (graphData.sick.length > maxPts) {
+      graphData.sick.shift(); graphData.immune.shift();
+      graphData.healthy.shift(); graphData.total.shift();
+    }
+  }
+
+  updateStats();
+  drawSim();
+  drawGraph();
+}
+
+function updateStats() {
+  const total = agents.length || 1;
+  const nSick = agents.filter(a => a.state === 'sick').length;
+  const nImmune = agents.filter(a => a.state === 'immune').length;
+  const pInfected = (nSick / total * 100).toFixed(1);
+  const pImmune = (nImmune / total * 100).toFixed(1);
+  const years = (tick / 52).toFixed(2);
+
+  document.getElementById('statInfected').textContent = pInfected + '%';
+  document.getElementById('statImmune').textContent = pImmune + '%';
+  document.getElementById('statTime').textContent = years + ' yrs';
+  document.getElementById('barInfected').style.width = pInfected + '%';
+  document.getElementById('barImmune').style.width = pImmune + '%';
+}
+
+// === DRAW SIMULATION ===
+function drawSim() {
+  const W = simCanvas.width, H = simCanvas.height;
+  simCtx.clearRect(0, 0, W, H);
+  // Background
+  simCtx.fillStyle = COLORS.bg;
+  simCtx.fillRect(0, 0, W, H);
+  agents.forEach(a => a.draw(simCtx));
+}
+
+// === DRAW GRAPH ===
+function drawGraph() {
+  const W = graphCanvas.width, H = graphCanvas.height;
+  graphCtx.clearRect(0, 0, W, H);
+  graphCtx.fillStyle = COLORS.panel2;
+  graphCtx.fillRect(0, 0, W, H);
+
+  const data = graphData;
+  const pts = data.sick.length;
+  if (pts < 2) return;
+
+  const pad = { t:10, b:20, l:10, r:10 };
+  const gW = W - pad.l - pad.r;
+  const gH = H - pad.t - pad.b;
+
+  const total = agents.length;
+  const maxY = total;
+
+  function drawLine(arr, color) {
+    if (arr.length < 2) return;
+    graphCtx.beginPath();
+    graphCtx.strokeStyle = color;
+    graphCtx.lineWidth = 1.5;
+    graphCtx.shadowColor = color;
+    graphCtx.shadowBlur = 4;
+    arr.forEach((v, i) => {
+      const x = pad.l + (i / (arr.length - 1)) * gW;
+      const y = pad.t + gH - (v / maxY) * gH;
+      i === 0 ? graphCtx.moveTo(x, y) : graphCtx.lineTo(x, y);
+    });
+    graphCtx.stroke();
+    graphCtx.shadowBlur = 0;
+  }
+
+  // Grid lines
+  graphCtx.strokeStyle = 'rgba(30,45,74,0.6)';
+  graphCtx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (i / 4) * gH;
+    graphCtx.beginPath();
+    graphCtx.moveTo(pad.l, y);
+    graphCtx.lineTo(W - pad.r, y);
+    graphCtx.stroke();
+    const val = Math.round(maxY * (1 - i/4));
+    graphCtx.fillStyle = 'rgba(74,85,104,0.8)';
+    graphCtx.font = '8px Share Tech Mono';
+    graphCtx.fillText(val, 2, y + 3);
+  }
+
+  drawLine(data.total, COLORS.total);
+  drawLine(data.healthy, COLORS.healthy);
+  drawLine(data.immune, COLORS.immune);
+  drawLine(data.sick, COLORS.sick);
+}
+
+// === ANIMATION LOOP ===
+function loop(timestamp) {
+  if (!running) return;
+  const speed = getParam('speed');
+  const interval = 1000 / (speed * 8); // ticks per second scale
+  accumulator += timestamp - (lastTime || timestamp);
+  lastTime = timestamp;
+
+  while (accumulator >= interval) {
+    step();
+    accumulator -= interval;
+  }
+
+  animId = requestAnimationFrame(loop);
+}
+
+function startSim() {
+  if (running) return;
+  running = true;
+  lastTime = 0;
+  accumulator = 0;
+  document.getElementById('goBtn').textContent = '⏸ PAUSE';
+  document.getElementById('goBtn').classList.add('running');
+  animId = requestAnimationFrame(loop);
+}
+
+function stopSim() {
+  running = false;
+  if (animId) cancelAnimationFrame(animId);
+  document.getElementById('goBtn').textContent = '▶ GO';
+  document.getElementById('goBtn').classList.remove('running');
+}
+
+// === CONTROLS ===
+document.getElementById('goBtn').addEventListener('click', () => {
+  if (agents.length === 0) setup();
+  running ? stopSim() : startSim();
+});
+
+document.getElementById('setupBtn').addEventListener('click', () => {
+  setup();
+});
+
+// Slider live update
+function setupSlider(id, valId, suffix) {
+  const slider = document.getElementById(id);
+  const val = document.getElementById(valId);
+  function update() {
+    val.textContent = slider.value + (suffix || '');
+    const pct = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+    slider.style.setProperty('--pct', pct + '%');
+  }
+  slider.addEventListener('input', update);
+  update();
+}
+
+setupSlider('speed', 'speedVal', '');
+setupSlider('population', 'popVal', '');
+setupSlider('infectiousness', 'infVal', '%');
+setupSlider('chanceRecover', 'recVal', '%');
+setupSlider('duration', 'durVal', '');
+
+// Shape selector
+document.querySelectorAll('.shape-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedShape = btn.dataset.shape;
+  });
+});
+
+// Initial setup
+setup();
+</script>
+</body>
+</html>
